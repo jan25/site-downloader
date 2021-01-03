@@ -5,12 +5,15 @@ from requests_html import HTMLSession
 import os
 from queue import Queue, Empty
 from urllib.parse import urlparse, urlunsplit, urljoin
+from files import download
 
+
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 # TODO: Convert these to named args from cli
 START_URL = "https://sre.google/sre-book/table-of-contents/"
-DEPTH = 2
-TARGET_DIR = "./musk"
+DEPTH = 1
+TARGET_DIR = "./sre"
 VERBOSE = True
 QUEUE_TIMEOUT = 10 # seconds
 
@@ -40,6 +43,13 @@ def get_base_url(url):
     parsed = urlparse(url)
     return urlunsplit((parsed.scheme, parsed.netloc, '', '', ''))
 
+def get_path(url):
+    '''
+    Gets path from the URL.
+    '''
+    parsed = urlparse(url)
+    return parsed.path
+
 def fetch(link):
     url, depth = link.url, link.depth
     if depth == DEPTH:
@@ -60,9 +70,15 @@ def fetch(link):
 
 def handle_post_fetch(link):
     print(f'Handling post fetch', link.url)
+    base_url = get_base_url(link.url)
+
     try:
-        base_url = get_base_url(link.url)
-        
+        download(link.html, base_url, get_path(link.url), TARGET_DIR)
+    except Exception as e:
+        raise Exception("Failed to download site %r", e)
+
+    try:
+
         for url in link.html.links:
             sanitised_url = sanitise_url(url)
             if get_base_url(sanitised_url) not in {'', base_url}: continue
@@ -74,7 +90,6 @@ def handle_post_fetch(link):
             
             print(f'Adding {sanitised_url} to queue')
             q.put(Link(sanitised_url, link.depth + 1))
-
     except Exception as e:
         raise Exception("Handling post fetch failed %r", e)
 
@@ -82,7 +97,7 @@ def main():
     q.put(Link(sanitise_url(START_URL)))
 
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = dict()
+        futures = set()
         chunk_size = 10
 
         # TODO: Prove correctness of this
@@ -90,12 +105,12 @@ def main():
             try:
                 for _ in range(chunk_size):
                     link = q.get(timeout=QUEUE_TIMEOUT)
-                    futures[executor.submit(fetch, link)] = True
+                    futures.add(executor.submit(fetch, link))
 
                 done, _ = wait(futures, timeout=0.5, return_when=FIRST_COMPLETED)
 
                 for future in done:
-                    del futures[future]
+                    futures.remove(future)
 
             except Empty as e:
                 print('empty queue after waiting')
