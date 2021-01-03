@@ -11,9 +11,9 @@ from files import download
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 # TODO: Convert these to named args from cli
-START_URL = "https://sre.google/sre-book/table-of-contents/"
-DEPTH = 1
-TARGET_DIR = "./sre"
+START_URL = "https://en.wikipedia.org/wiki/Elon_Musk"
+DEPTH = 2
+TARGET_DIR = "./musk"
 VERBOSE = True
 QUEUE_TIMEOUT = 10 # seconds
 

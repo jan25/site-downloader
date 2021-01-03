@@ -1,8 +1,15 @@
 import logging
 import os
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, quote
+from urllib.parse import urljoin, quote, urlparse
 import requests
+
+def get_path(url):
+    '''
+    Gets path from the URL.
+    '''
+    parsed = urlparse(url)
+    return parsed.path
 
 def find_and_save(session, target_dir, base_url, soup, tag='img', inner='src'):
     if not os.path.exists(target_dir):
@@ -14,8 +21,8 @@ def find_and_save(session, target_dir, base_url, soup, tag='img', inner='src'):
         try:
             filename = os.path.basename(res.get(inner))
             fileurl = urljoin(base_url, res.get(inner))
-            filepath = os.path.join(target_dir, filename)
-            res[inner] = quote(os.path.join(os.path.basename(target_dir), filename)) # % encode links
+            filepath = os.path.join(target_dir, get_path(filename))
+            res[inner] = os.path.join(os.path.basename(target_dir), get_path(filename))
             logging.info(f'Downloading {filepath} from {fileurl}')
             with open(filepath, 'wb') as f:
                 filebin = session.get(fileurl)
